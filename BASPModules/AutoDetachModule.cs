@@ -1,6 +1,7 @@
 ﻿using SFS.Parts;
 using SFS.Parts.Modules;
 using SFS.World;
+using System.Collections.Generic;
 using UnityEngine;
 using static SFS.World.Rocket;
 
@@ -14,35 +15,57 @@ using static SFS.World.Rocket;
 public class AutoDetachModule : MonoBehaviour, INJ_Rocket
 {
     public Rocket Rocket { set; private get; }
-    private Part part;
+    public Part Part;
 
     // list of priority parts to detach before the default detach module
     public string[] partToDetach = new string[0];
     // default detach module.
     public DetachModule detachModule;
+
+    private short _currentStage;
+    private List<Part> _visited;
+    private const short _max_search_level = 3;
     
     private void Awake()
     {
-        this.part = this.GetComponent<Part>();
+        this._currentStage = 0;
+        this._visited = new List<Part>();
     }
 
-    /**
-     * <summary>
-     *  Search the partToDetach list if the part exists and return the priority in the list
-     * </summary>
-     */
-    private bool isInList(string partName, out short priority)
+    private Part SearchPart(string partName, Part StartPoint, int level)
     {
-        for(short i = 0; i < this.partToDetach.Length; i++)
+        this._visited.Add(StartPoint);
+        if(level >= _max_search_level)
         {
-            if (partName == this.partToDetach[i])
+            return null;
+        }
+
+        foreach (PartJoint joint in this.Rocket.jointsGroup.GetConnectedJoints(StartPoint))
+        {
+            Part otherPart = joint.GetOtherPart(StartPoint);
+            if (this.AlreadyVisited(otherPart))
             {
-                priority = i;
-                return true;
+                continue;
+            }
+
+            if(otherPart.name == partName)
+            {
+                return otherPart;
+            }
+
+            otherPart = this.SearchPart(partName, otherPart, level + 1);
+
+            if(otherPart != null)
+            {
+                return otherPart;
             }
         }
-        priority = 100;
-        return false;
+        return null;
+    }
+
+    private bool AlreadyVisited(Part part)
+    {
+        return this._visited.Exists(e=> e == part);
     }
 
     /**
@@ -52,27 +75,36 @@ public class AutoDetachModule : MonoBehaviour, INJ_Rocket
      */
     public void OnDetach(UsePartData data)
     {
-        DetachModule maxPriorityDetachModule = this.detachModule;
-        short maxPriorityValue = 100;
-        short priority;
-        bool exist;
-       
-        if (this.partToDetach != null)
+        if (data.sharedData.fromStaging)
         {
-            // search the part to detach
-            foreach (PartJoint joint in this.Rocket.jointsGroup.GetConnectedJoints(this.part))
+            if (this._currentStage+1 == this.partToDetach.Length || this.partToDetach.Length == 0)
             {
-                Part otherPart = joint.GetOtherPart(this.part);
-                exist = this.isInList(otherPart.name, out priority);
-                if (exist && priority < maxPriorityValue)
-                {
-                    maxPriorityValue = priority;
-                    maxPriorityDetachModule = otherPart.GetComponent<DetachModule>();
-                }
+                this.detachModule.Detach(data);
             }
+            this._currentStage += 1;
+            return;
+        }
+       
+        if (this.partToDetach == null)
+        {
+            return;
         }
 
-        // detach the part
-        maxPriorityDetachModule.Detach(data);
+        string partToDetach = this.partToDetach[this._currentStage];
+        Part otherPart = this.SearchPart(partToDetach, this.Part, 0);
+        this._visited = new List<Part>();//clear visited list for the next call
+        this._currentStage += 1;
+        DetachModule[] otherPartModule = otherPart.GetModules<DetachModule>();
+
+        if(otherPartModule == null || otherPartModule.Length == 0)
+        {
+            Debug.Log("Other part don't have  DetachModule");
+            return;
+        }
+
+        foreach(DetachModule detachmodule in otherPartModule)
+        {
+            detachmodule.Detach(data);
+        }
     }
 }
