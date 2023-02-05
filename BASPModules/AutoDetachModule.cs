@@ -32,6 +32,11 @@ public class AutoDetachModule : MonoBehaviour, INJ_Rocket
         this._visited = new List<Part>();
     }
 
+    /**
+     * <summary>
+     *  Search for a specific part of the rocket with a maximum deep search
+     * </summary>
+     */
     private Part SearchPart(string partName, Part StartPoint, int level)
     {
         this._visited.Add(StartPoint);
@@ -63,6 +68,11 @@ public class AutoDetachModule : MonoBehaviour, INJ_Rocket
         return null;
     }
 
+    /**
+     * <summary>
+     *  Check is the part was visited
+     * </summary>
+     */
     private bool AlreadyVisited(Part part)
     {
         return this._visited.Exists(e=> e == part);
@@ -70,13 +80,15 @@ public class AutoDetachModule : MonoBehaviour, INJ_Rocket
 
     /**
      * <summary>
-     *  Call this method to find and detach the part with the highest priority.
+     *  Call this method to find and detach the part for the current stage.
      * </summary>
      */
     public void OnDetach(UsePartData data)
     {
+        // if was call from stage
         if (data.sharedData.fromStaging)
         {
+
             if (this._currentStage+1 == this.partToDetach.Length || this.partToDetach.Length == 0)
             {
                 this.detachModule.Detach(data);
@@ -90,10 +102,12 @@ public class AutoDetachModule : MonoBehaviour, INJ_Rocket
             return;
         }
 
-        string partToDetach = this.partToDetach[this._currentStage];
-        Part otherPart = this.SearchPart(partToDetach, this.Part, 0);
-        this._visited = new List<Part>();//clear visited list for the next call
+        Part otherPart = this.SearchPart(this.partToDetach[this._currentStage], this.Part, 0);
+
+        //clear visited list for the next call
+        this._visited = new List<Part>();
         this._currentStage += 1;
+
         DetachModule[] otherPartModule = otherPart.GetModules<DetachModule>();
 
         if(otherPartModule == null || otherPartModule.Length == 0)
@@ -106,5 +120,6 @@ public class AutoDetachModule : MonoBehaviour, INJ_Rocket
         {
             detachmodule.Detach(data);
         }
+
     }
 }
