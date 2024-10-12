@@ -64,6 +64,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AutoDetachModule.cs" />
+    <Compile Include="BRPack.cs" />
+    <Compile Include="Patch/SpaceCenterPatcher.cs" />
+    <Compile Include="Util/BuildingUtil.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
